@@ -1,0 +1,52 @@
+import os
+import requests
+import time
+
+# Берем токен из скрытых настроек сервера
+TOKEN = os.environ.get("VK_TOKEN")
+
+def listen_vk():
+    if not TOKEN:
+        print("Ошибка: Токен VK_TOKEN не найден в настройках сервера!")
+        return
+
+    print("Бот PACE Formula успешно запущен и слушает сообщения...")
+    ts = None
+    pts = None
+    
+    # Подключаемся к LongPoll ВК напрямую через API
+    try:
+        group_info = requests.get(f"https://vk.com{TOKEN}").json()
+        group_id = group_info['response'][0]['id']
+        server_info = requests.get(f"https://vk.com{group_id}&v=5.131&access_token={TOKEN}").json()
+        server = server_info['response']['server']
+        key = server_info['response']['key']
+        ts = server_info['response']['ts']
+    except Exception as e:
+        print(f"Ошибка подключения к ВК: {e}")
+        return
+
+    while True:
+        try:
+            lp_data = requests.get(f"{server}?act=a_check&key={key}&ts={ts}&wait=25&mode=2&version=3").json()
+            ts = lp_data['ts']
+            for update in lp_data.get('updates', []):
+                if update['type'] == 'message_new':
+                    message = update['object']['message']
+                    user_id = message['from_id']
+                    text = message['text'].lower().strip()
+                    
+                    if text in ["начать", "привет", "hello"]:
+                        welcome_text = (
+                            "Приветствуем в паддоке PACE Formula! 🏎️\n\n"
+                            "Я твой гоночный бот-помощник. Скоро здесь начнется "
+                            "прием прогнозов на первый этап.\n\n"
+                            "Убедись, что ты ознакомился с регламентом в группе!"
+                        )
+                        # Отправка ответа
+                        requests.get(f"https://vk.com{user_id}&message={welcome_text}&random_id=0&v=5.131&access_token={TOKEN}")
+        except Exception as e:
+            time.sleep(3)
+
+if __name__ == "__main__":
+    listen_vk()
